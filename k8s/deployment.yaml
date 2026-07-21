@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference-service
+  labels:
+    app: inference-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inference-service
+  template:
+    metadata:
+      labels:
+        app: inference-service
+      annotations:
+        # Lets Prometheus (or any scraper using this convention) auto-discover the pod.
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: inference-service
+          image: inference-service:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          env:
+            - name: USE_STUB
+              value: "1"
+            - name: MODEL_NAME
+              value: "distilbert-base-uncased-finetuned-sst-2-english"
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+              # Uncomment to schedule onto a real GPU node (requires the
+              # NVIDIA device plugin installed on the cluster):
+              # nvidia.com/gpu: "1"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
